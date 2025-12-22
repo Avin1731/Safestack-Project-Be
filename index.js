@@ -6,6 +6,7 @@ const cors = require('cors');
 // Import Route
 const authRoutes = require('./routes/authRoutes');
 const ventRoutes = require('./routes/ventRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ mongoose.connect(process.env.MONGO_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/vents', ventRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Root Check
 app.get('/', (req, res) => res.send('Server SafeTask Ready! 🚀'));
