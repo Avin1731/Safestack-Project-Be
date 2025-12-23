@@ -16,9 +16,10 @@ app.use(cors());
 app.use(express.json());
 
 // Connect DB
+// Menggunakan _err agar sesuai dengan regex linter /^[A-Z_]/u
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('❌ DB Error:', err));
+  .catch((_err) => console.error('❌ DB Error:', _err.message));
 
 // Routes
 app.use('/api/auth', authRoutes);
