@@ -3,30 +3,28 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-// Import Route
+// 1. Import Route Baru
 const authRoutes = require('./routes/authRoutes');
 const ventRoutes = require('./routes/ventRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const projectRoutes = require('./routes/projectRoutes'); // <-- Tambah ini bngst
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Connect DB
-// Menggunakan _err agar sesuai dengan regex linter /^[A-Z_]/u
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch((_err) => console.error('❌ DB Error:', _err.message));
 
-// Routes
+// 2. Daftarkan Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/vents', ventRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/projects', projectRoutes); // <-- Tambah ini biar gak 404
 
-// Root Check
 app.get('/', (req, res) => res.send('Server SafeTask Ready! 🚀'));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

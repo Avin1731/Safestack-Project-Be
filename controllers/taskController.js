@@ -1,54 +1,61 @@
 const Task = require('../models/Task');
 
-// Ambil semua task milik user yang sedang login
+// 1. Ambil Task berdasarkan Project ID
 exports.getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json(tasks);
-  } catch (error) {
-    res.status(500).json({ message: "Gagal mengambil data task" });
+    const { projectId } = req.query;
+    const query = { user: req.user.id };
+    
+    // Jika projectId ada, filter task spesifik project itu
+    if (projectId) query.projectId = projectId;
+
+    const tasks = await Task.find(query);
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal ambil task workspace' });
   }
 };
 
-// Buat task baru
+// 2. Tambah Task Baru
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, status, priority } = req.body;
-    const newTask = await Task.create({
-      userId: req.user.id,
+    const { title, status, projectId, description } = req.body;
+    
+    const newTask = new Task({
       title,
       description,
-      status,
-      priority
+      status: status || 'todo',
+      projectId, // Wajib masukin projectId dari FE
+      user: req.user.id
     });
-    res.status(201).json(newTask);
-  } catch (error) {
-    res.status(500).json({ message: "Gagal membuat task" });
+
+    const savedTask = await newTask.save();
+    res.json(savedTask);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal nambah task ke workspace' });
   }
 };
 
-// Update task (pindah status atau edit isi)
+// 3. Update Task (Ini yang tadi bikin crash karena undefined)
 exports.updateTask = async (req, res) => {
   try {
-    const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      req.body,
+    const task = await Task.findByIdAndUpdate(
+      req.params.id, 
+      { $set: req.body }, 
       { new: true }
     );
-    if (!task) return res.status(404).json({ message: "Task tidak ditemukan" });
-    res.status(200).json(task);
-  } catch (error) {
-    res.status(500).json({ message: "Gagal update task" });
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal update status task' });
   }
 };
 
-// Hapus task
+// 4. Hapus Task
 exports.deleteTask = async (req, res) => {
   try {
-    const task = await Task.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    if (!task) return res.status(404).json({ message: "Task tidak ditemukan" });
-    res.status(200).json({ message: "Task berhasil dihapus" });
-  } catch (error) {
-    res.status(500).json({ message: "Gagal menghapus task" });
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Tugas telah dihapus' });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal hapus tugas' });
   }
 };
