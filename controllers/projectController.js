@@ -1,14 +1,13 @@
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 
-// 1. Ambil semua Project + Stats buat Rainbow Bar
+// 1. Get Projects + Stats (Ini udah bener logic-nya)
 exports.getProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ user: req.user.id });
+    const projects = await Project.find({ user: req.user.id }).sort({ createdAt: -1 }); // Tambah sort biar yang baru diatas
     
     const projectWithStats = await Promise.all(projects.map(async (project) => {
       const tasks = await Task.find({ projectId: project._id });
-      
       return {
         ...project._doc,
         id: project._id,
@@ -23,34 +22,46 @@ exports.getProjects = async (req, res) => {
 
     res.json(projectWithStats);
   } catch (err) {
-    res.status(500).json({ message: 'Server Error pas ambil projects' });
+    console.error(err);
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// 2. Buat Project Baru
+// 2. Create Project (Udah bener)
 exports.createProject = async (req, res) => {
   try {
     const newProject = new Project({
       name: req.body.name,
-      user: req.user.id
+      user: req.user.id,
+      themeColor: req.body.themeColor || '#CCD5AE' // Opsional: kalo mau simpen warna tema
     });
     const savedProject = await newProject.save();
     res.json(savedProject);
   } catch (err) {
-    res.status(500).json({ message: 'Gagal bikin project baru' });
+    res.status(500).json({ message: 'Gagal buat project' });
   }
 };
 
-// 3. Selesaikan Project (Update Status ke Completed)
-exports.completeProject = async (req, res) => {
+// 3. Update Project Status (FIXED & SECURE)
+exports.updateProjectStatus = async (req, res) => {
   try {
-    const project = await Project.findByIdAndUpdate(
-      req.params.id, 
-      { status: 'completed' }, 
+    const { status } = req.body; // Ambil status dari body kiriman frontend
+
+    // SECURITY: Pastikan yang diupdate punya user yang login (req.user.id)
+    // Jangan pakai findByIdAndUpdate doang, nanti orang lain bisa nembak ID project lo
+    const project = await Project.findOneAndUpdate(
+      { _id: req.params.id, user: req.user.id }, 
+      { status: status || 'completed' }, 
       { new: true }
     );
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project tidak ditemukan atau bukan milikmu' });
+    }
+
     res.json(project);
   } catch (err) {
-    res.status(500).json({ message: 'Gagal selesaikan project' });
+    console.error(err);
+    res.status(500).json({ message: 'Gagal update status project' });
   }
 };

@@ -5,6 +5,8 @@ const auth = require('../middleware/authMiddleware');
 
 router.get('/', auth, projectController.getProjects);
 router.post('/', auth, projectController.createProject);
-router.put('/:id/complete', auth, projectController.completeProject); // Pastikan completeProject ada
+
+// FIX: Ganti jadi PATCH /:id biar match sama frontend hook
+router.patch('/:id', auth, projectController.updateProjectStatus); 
 
 module.exports = router;
