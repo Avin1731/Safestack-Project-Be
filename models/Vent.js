@@ -1,23 +1,38 @@
 const mongoose = require('mongoose');
 
-const VentSchema = new mongoose.Schema({
-  content: { type: String, required: true, maxLength: 500 },
-  mood: { type: String, required: true }, // Emoji
-  authorHash: { type: String, required: true, select: false }, // Anonim logic
-
-  // Posisi Canvas (X, Y)
-  position: {
-    x: { type: Number, default: 0 },
-    y: { type: Number, default: 0 }
+const ventSchema = new mongoose.Schema({
+  content: {
+    type: String,
+    required: [true, 'Konten curhatan harus diisi'],
+    trim: true,
+    maxlength: [1000, 'Curhatan maksimal 1000 karakter'] // Kita perbanyak dikit biar lega
   },
-  rotation: { type: Number, default: 0 },
-  color: { type: String, default: '#fff740' }, // Warna kertas
-
-  replies: [{
+  mood: {
+    type: String,
+    enum: ['😊', '😔', '😠', '🤯', '😭', '😴'], 
+    default: '😊'
+  },
+  authorHash: {
+    type: String,
+    select: false 
+  },
+  // --- FITUR SOSIAL (Tanpa Username) ---
+  // Array berisi authorHash orang yang klik tombol "Otot/Semangat"
+  supports: [String], 
+  
+  // Array komentar
+  comments: [{
     content: String,
+    authorHash: String, // Tetap anonim, tapi biar tau mana OP mana komentator
     createdAt: { type: Date, default: Date.now }
   }],
-  createdAt: { type: Date, default: Date.now }
+  // -------------------------------------
+  
+  color: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model('Vent', VentSchema);
+module.exports = mongoose.model('Vent', ventSchema);
