@@ -19,7 +19,7 @@ exports.createVent = async (req, res) => {
   }
 };
 
-// 2. Ambil Semua (Dengan Filter & Sort)
+// 2. Ambil Semua (Modified for isMine Logic)
 exports.getAllVents = async (req, res) => {
   try {
     const { filter, sort } = req.query; 
@@ -30,12 +30,6 @@ exports.getAllVents = async (req, res) => {
         query.mood = filter;
     }
 
-    // Logic Sort
-    let sortOption = { createdAt: -1 }; 
-    // Note: Sort by array length via Mongoose find() is limited. 
-    // Untuk performa terbaik di production harusnya pakai aggregate, 
-    // tapi untuk MVP ini kita handle sort array di memori JS di bawah.
-
     const vents = await Vent.find(query).select('+authorHash').sort({ createdAt: -1 });
 
     let sanitizedVents = vents.map(v => {
@@ -43,9 +37,35 @@ exports.getAllVents = async (req, res) => {
       const isOwner = currentHash && ventObj.authorHash === currentHash;
       const isSupported = currentHash && ventObj.supports.includes(currentHash);
 
-      delete ventObj.authorHash;
+      // Process Comments to inject isMine flag
+      const processedComments = ventObj.comments.map(c => {
+          const isCommentMine = currentHash && c.authorHash === currentHash;
+          const isCommentOP = c.authorHash === ventObj.authorHash;
+
+          const processedReplies = c.replies.map(r => {
+              const isReplyMine = currentHash && r.authorHash === currentHash;
+              const isReplyOP = r.authorHash === ventObj.authorHash;
+              return {
+                  ...r,
+                  isMine: isReplyMine,
+                  isOP: isReplyOP
+              };
+          });
+
+          return {
+              ...c,
+              isMine: isCommentMine,
+              isOP: isCommentOP,
+              replies: processedReplies
+          };
+      });
+
+      delete ventObj.authorHash; // Hide main vent author hash
+      // Note: We keep comment/reply authorHash visible for Avatar generation
+
       return { 
           ...ventObj, 
+          comments: processedComments,
           isOwner, 
           isSupported, 
           supportCount: ventObj.supports.length,
@@ -53,7 +73,6 @@ exports.getAllVents = async (req, res) => {
       };
     });
 
-    // Manual Sort in Memory
     if (sort === 'supported') {
         sanitizedVents.sort((a, b) => b.supportCount - a.supportCount);
     } else if (sort === 'discussed') {
@@ -67,7 +86,7 @@ exports.getAllVents = async (req, res) => {
   }
 };
 
-// 3. Toggle Support (Otot)
+// 3. Toggle Support
 exports.toggleSupport = async (req, res) => {
     try {
         const vent = await Vent.findById(req.params.id);
@@ -99,7 +118,9 @@ exports.addComment = async (req, res) => {
 
         vent.comments.push({
             content,
-            authorHash: userHash
+            authorHash: userHash,
+            likes: [],
+            replies: []
         });
 
         await vent.save();
@@ -127,29 +148,24 @@ exports.deleteVent = async (req, res) => {
     }
 };
 
-// 6. GET STATS (COUNTER & TRENDING) -- BARU
+// 6. Get Stats
 exports.getVoidStats = async (req, res) => {
   try {
-    // A. Hitung Jumlah per Mood
     const moodCounts = await Vent.aggregate([
       { $group: { _id: "$mood", count: { $sum: 1 } } }
     ]);
 
-    // Format object: { '😊': 5, all: 20 }
     const stats = { all: 0 };
     moodCounts.forEach(item => {
       stats[item._id] = item.count;
       stats.all += item.count;
     });
 
-    // B. Logika Pojok Peduli
-    // 1. Need Love: Mood sedih/stress, support 0, ambil terbaru
     const needLove = await Vent.findOne({
        mood: { $in: ['😔', '😭', '🤯', '😴'] },
        supports: { $size: 0 } 
     }).sort({ createdAt: -1 });
 
-    // 2. Top Supported: Support terbanyak
     const topSupported = await Vent.aggregate([
         { $addFields: { supportLen: { $size: "$supports" } } },
         { $sort: { supportLen: -1 } },
@@ -163,9 +179,91 @@ exports.getVoidStats = async (req, res) => {
         topSupported: topSupported[0] || null
       }
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Gagal ambil stats" });
   }
+};
+
+// 7. Toggle Like Komentar
+exports.toggleCommentLike = async (req, res) => {
+    try {
+        const { ventId, commentId } = req.params;
+        const userHash = generateAnonHash(req.user.id);
+        const vent = await Vent.findById(ventId);
+
+        if (!vent) return res.status(404).json({ message: "Vent not found" });
+
+        const comment = vent.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        const index = comment.likes.indexOf(userHash);
+        if (index === -1) {
+            comment.likes.push(userHash);
+        } else {
+            comment.likes.splice(index, 1);
+        }
+
+        await vent.save();
+        res.status(200).json(vent.comments);
+    } catch (error) {
+        res.status(500).json({ message: "Gagal like komentar" });
+    }
+};
+
+// 8. Reply Komentar (With Tagging)
+exports.replyToComment = async (req, res) => {
+    try {
+        const { ventId, commentId } = req.params;
+        const { content, replyTo } = req.body; // replyTo is hash of target user
+        const userHash = generateAnonHash(req.user.id);
+        const vent = await Vent.findById(ventId);
+
+        if (!vent) return res.status(404).json({ message: "Vent not found" });
+
+        const comment = vent.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        comment.replies.push({
+            content,
+            authorHash: userHash,
+            replyTo: replyTo || null,
+            likes: []
+        });
+
+        await vent.save();
+        res.status(201).json(vent.comments);
+    } catch (error) {
+        res.status(500).json({ message: "Gagal membalas komentar" });
+    }
+};
+
+// 9. Toggle Like Reply
+exports.toggleReplyLike = async (req, res) => {
+    try {
+        const { ventId, commentId, replyId } = req.params;
+        const userHash = generateAnonHash(req.user.id);
+        const vent = await Vent.findById(ventId);
+
+        if (!vent) return res.status(404).json({ message: "Vent not found" });
+
+        const comment = vent.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        const reply = comment.replies.id(replyId);
+        if (!reply) return res.status(404).json({ message: "Reply not found" });
+
+        const index = reply.likes.indexOf(userHash);
+        if (index === -1) {
+            reply.likes.push(userHash);
+        } else {
+            reply.likes.splice(index, 1);
+        }
+
+        await vent.save();
+        res.status(200).json(vent.comments);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Gagal like reply" });
+    }
 };

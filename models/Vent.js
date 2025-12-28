@@ -5,7 +5,7 @@ const ventSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Konten curhatan harus diisi'],
     trim: true,
-    maxlength: [1000, 'Curhatan maksimal 1000 karakter'] // Kita perbanyak dikit biar lega
+    maxlength: [1000, 'Curhatan maksimal 1000 karakter']
   },
   mood: {
     type: String,
@@ -16,17 +16,25 @@ const ventSchema = new mongoose.Schema({
     type: String,
     select: false 
   },
-  // --- FITUR SOSIAL (Tanpa Username) ---
-  // Array berisi authorHash orang yang klik tombol "Otot/Semangat"
+  // --- FITUR SOSIAL ---
   supports: [String], 
   
   // Array komentar
   comments: [{
     content: String,
-    authorHash: String, // Tetap anonim, tapi biar tau mana OP mana komentator
-    createdAt: { type: Date, default: Date.now }
+    authorHash: String,
+    createdAt: { type: Date, default: Date.now },
+    likes: [String],
+
+    // REPLIES DENGAN TAGGING
+    replies: [{
+       content: String,
+       authorHash: String,
+       createdAt: { type: Date, default: Date.now },
+       likes: [String], // Array Like untuk Reply
+       replyTo: String  // Hash user yang dibalas (Tagging)
+    }]
   }],
-  // -------------------------------------
   
   color: String,
   createdAt: {
