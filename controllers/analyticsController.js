@@ -1,18 +1,17 @@
 const SiteStat = require('../models/SiteStat');
 
-exports.recordVisit = async (req, res) => {
+exports.getGlobalStats = async (req, res) => {
   try {
-    // Cari dokumen stats, kalau belum ada buat baru (upsert: true)
-    // Lalu increment visits +1 secara atomik
-    const stat = await SiteStat.findOneAndUpdate(
-      { identifier: 'global_counter' },
-      { $inc: { visits: 1 } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    // HANYA MEMBACA (FIND), TIDAK ADA UPDATE
+    let stat = await SiteStat.findOne({ identifier: 'global_counter' });
+    
+    // Jika belum ada data, kembalikan 0 (jangan create baru di sini biar bersih)
+    const visits = stat ? stat.visits : 0;
 
-    res.status(200).json({ visits: stat.visits });
+    res.status(200).json({ visits });
   } catch (error) {
     console.error("Analytics Error:", error);
-    res.status(500).json({ message: "Gagal mencatat kunjungan" });
+    // Return 0 agar frontend tidak error
+    res.status(200).json({ visits: 0 }); 
   }
 };

@@ -2,10 +2,9 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// IMPORT SITE STAT
+const SiteStat = require('../models/SiteStat'); 
 
-/**
- * Login via Google OAuth
- */
 exports.googleLogin = async (req, res) => {
   const { idToken } = req.body;
 
@@ -29,6 +28,20 @@ exports.googleLogin = async (req, res) => {
       });
     }
 
+    // --- LOGIC TAMBAHAN: INCREMENT VISITOR COUNT ---
+    // Hanya dijalankan jika login berhasil
+    try {
+        await SiteStat.findOneAndUpdate(
+            { identifier: 'global_counter' },
+            { $inc: { visits: 1 } },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+    } catch (statError) {
+        console.error("Gagal update statistik:", statError);
+        // Error statistik jangan sampai menggagalkan login user
+    }
+    // -----------------------------------------------
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -43,7 +56,7 @@ exports.googleLogin = async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         photoUrl: user.photoUrl,
-        quote: user.quote, // Return quote
+        quote: user.quote, 
         role: user.role
       }
     });
@@ -54,19 +67,14 @@ exports.googleLogin = async (req, res) => {
   }
 };
 
-/**
- * Update Profil User (Nama, Foto, Quote)
- */
 exports.updateProfile = async (req, res) => {
   try {
-    // Ambil data dari body
     const { displayName, photoUrl, quote } = req.body;
 
     if (!displayName || displayName.trim() === "") {
       return res.status(400).json({ message: "Nama tampilan wajib diisi" });
     }
 
-    // Update dan return data baru (new: true)
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id, 
       { displayName, photoUrl, quote }, 

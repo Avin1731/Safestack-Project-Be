@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
 
-// Menggunakan .route() agar konsisten dengan modul rute lainnya
-router.route('/visit')
-    .put(analyticsController.recordVisit);
+// Ubah ke GET karena sifatnya sekarang hanya mengambil data
+router.get('/visit', analyticsController.getGlobalStats);
 
 module.exports = router;
