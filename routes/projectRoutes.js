@@ -3,10 +3,16 @@ const router = express.Router();
 const projectController = require('../controllers/projectController');
 const auth = require('../middleware/authMiddleware');
 
-router.get('/', auth, projectController.getProjects);
-router.post('/', auth, projectController.createProject);
+// Semua rute project wajib login
+router.use(auth);
 
-// FIX: Ganti jadi PATCH /:id biar match sama frontend hook
-router.patch('/:id', auth, projectController.updateProjectStatus); 
+router.route('/')
+    .get(projectController.getProjects)
+    .post(projectController.createProject);
+
+router.route('/:id')
+    .get(projectController.getProjectById) // Tambahan untuk detail proyek
+    .patch(projectController.updateProjectStatus)
+    .delete(projectController.deleteProject); // Tambahan fitur hapus proyek
 
 module.exports = router;

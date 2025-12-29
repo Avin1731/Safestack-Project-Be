@@ -1,25 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const ventController = require('../controllers/ventController');
-const authMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/authMiddleware');
 
-// --- Routes ---
+// Proteksi global
+router.use(auth);
 
-// Stats
-router.get('/stats', authMiddleware, ventController.getVoidStats);
+// --- 1. Statistik & List ---
+router.get('/stats', ventController.getVoidStats);
+router.get('/', ventController.getAllVents);
 
-// Get All
-router.get('/', authMiddleware, ventController.getAllVents);
+// --- 2. Operasi Utama Vent ---
+router.post('/', ventController.createVent);
 
-// Protected Actions (Vent Utama)
-router.post('/', authMiddleware, ventController.createVent);
-router.delete('/:id', authMiddleware, ventController.deleteVent);
-router.put('/:id/support', authMiddleware, ventController.toggleSupport);
-router.post('/:id/comments', authMiddleware, ventController.addComment);
+// HAPUS / DELETE Vent (URL: /vents/:id)
+router.delete('/:id', ventController.deleteVent);
 
-// --- COMMENT & REPLY ROUTES ---
-router.put('/:ventId/comments/:commentId/like', authMiddleware, ventController.toggleCommentLike);
-router.post('/:ventId/comments/:commentId/reply', authMiddleware, ventController.replyToComment);
-router.put('/:ventId/comments/:commentId/replies/:replyId/like', authMiddleware, ventController.toggleReplyLike);
+// FIX: Tambahkan '/support' di URL agar cocok dengan Frontend (URL: /vents/:id/support)
+router.put('/:id/support', ventController.toggleSupport); 
+
+// --- 3. Komentar & Like ---
+router.post('/:id/comments', ventController.addComment);
+router.put('/:ventId/comments/:commentId/like', ventController.toggleCommentLike);
+
+// --- 4. Sistem Balasan (Replies) ---
+router.route('/:ventId/comments/:commentId/reply')
+    .post(ventController.replyToComment);
+
+router.put('/:ventId/comments/:commentId/replies/:replyId/like', ventController.toggleReplyLike);
 
 module.exports = router;

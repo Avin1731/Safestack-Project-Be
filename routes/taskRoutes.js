@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const taskController = require('../controllers/taskController');
-const authMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/authMiddleware');
 
-// Semua route task wajib login
-router.use(authMiddleware);
+// Proteksi global untuk rute task
+router.use(auth);
 
-router.get('/', taskController.getTasks);
-router.post('/', taskController.createTask);
-router.put('/:id', taskController.updateTask);
-router.delete('/:id', taskController.deleteTask);
+router.route('/')
+    .get(taskController.getTasks)
+    .post(taskController.createTask);
+
+router.route('/:id')
+    .put(taskController.updateTask)
+    .delete(taskController.deleteTask);
 
 module.exports = router;
